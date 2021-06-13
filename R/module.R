@@ -48,13 +48,61 @@ module <- function( Arguments ){
          "  Run moduleInit() to initialize module envionment" )
   }
 
-  moduleCmd <- file.path(Sys.getenv('MODULESHOME'),"bin/modulecmd")
-  # check if modulecmd exists
-  if (!file.exists(moduleCmd)) {
-    stop(moduleCmd," missing!\n",
-         "  Module environment not properly set up!" )
+  if (getOption("rlinuxmodules.use_lmod", FALSE) == TRUE) {
+    invisible(lmod_module(moduleCmd, Arguments))
+  } else {
+    moduleCmd <- file.path(Sys.getenv('MODULESHOME'), "bin/modulecmd")
+    # check if modulecmd exists
+    if (!file.exists(moduleCmd)) {
+      stop(moduleCmd,
+           " missing!\n",
+           "  Module environment not properly set up!")
+    }
+    moduleVersion <- Sys.getenv("MODULE_VERSION", unset = NA)
+    if(compareVersion("3.2.10", moduleVersion) >= 0) {
+      # 3.2.10
+      # TODO: actually be backwards compatible
+      invisible(tcl_four_module(moduleCmd, Arguments))
+    } else {
+      invisible(tcl_four_module(moduleCmd, Arguments))
+    }
+  }
+}
+
+lmod_module <- function (moduleCmd, Arguments) {
+  # TODO: check this implementation - cribbed from https://github.com/TACC/Lmod/blob/master/init/R.in
+  cmd <- paste(moduleCmd, "r", Arguments, sep = ' ')
+
+  hndl <- pipe(cmd)
+  eval(expr = parse(file = hndl))
+  close(hndl)
+
+  invisible(0)
+}
+
+tcl_three_module <- function (moduleCmd, Arguments) {
+  # use the python interface
+  pythonCmds <- system(paste(moduleCmd,"python",Arguments),intern=T)
+
+
+  # Check if all python commands are recognizable
+  validPythonCmd <- grepl("os\\.chdir\\('([^']*)'\\)",pythonCmds) |
+    grepl("os\\.environ\\['([^']*)'] = '([^']*)'",pythonCmds) |
+    grepl("del os\\.environ\\['([^']*)'\\]",pythonCmds)
+  if( !all(validPythonCmd) ){
+    stop("modulecmd returned unknown command(s):\n", paste(pythonCmds[!validPythonCmd],collapse = "\n"))
   }
 
+  # convert python commands to R commands
+  RCmds <- sub("os\\.chdir\\('([^']*)'\\)","setwd(dir = '\\1')",pythonCmds,perl=T)
+  RCmds <- sub("os\\.environ\\['([^']*)'] = '([^']*)'","Sys.setenv('\\1' = '\\2')",RCmds,perl=T)
+  RCmds <- sub("del os\\.environ\\['([^']*)'\\]","Sys.unsetenv('\\1')",RCmds,perl=T)
+
+  # execute R commands
+  invisible( eval( parse(text = RCmds) ) )
+}
+
+tcl_four_module <- function (moduleCmd, Arguments) {
   # determine subcommand
   args              <- gsub(pattern = "(\\-+[^\\s]+\\s|^\\s+)", replacement = "", x = Arguments[1], perl = TRUE)
   moduleoperation   <- regmatches(x = args, regexpr("^([^\\s]+)", args, perl = TRUE))

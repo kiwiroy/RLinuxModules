@@ -1,6 +1,7 @@
 context("RLinuxModules initialise")
 
 modulesHome  <- file.path(getwd(), "mock")
+lmodulesHome <- file.path(getwd(), "mock_lmod")
 empty_env <- c(
   MODULE_VERSION = NA,
   MODULEPATH     = NA,
@@ -72,5 +73,26 @@ test_that("checking modulecmd works", {
   })
 })
 
-
-
+test_that("compatible with Lmod", {
+  withr::with_options(new = list(rlinuxmodules.use_lmod = TRUE), {
+    expect_error(
+      moduleInit(modulesHome = "/opt/usr/local/unlikely/1.1.1"),
+      paste(
+        "/opt/usr/local/unlikely/1.1.1/libexec/lmod missing!",
+        "  Module environment init failed!",
+        sep = "\n"
+      )
+    )
+  })
+  withr::with_options(new = list(rlinuxmodules.use_lmod = TRUE), {
+    moduleInit(modulesHome = lmodulesHome, version = "8.4")
+    expect_equivalent(Sys.getenv("LMOD_CMD", unset = NA),
+                      file.path(lmodulesHome, "libexec", "lmod"))
+    expect_equivalent(Sys.getenv("LMOD_DIR", unset = NA),
+                      file.path(lmodulesHome, "libexec"))
+    expect_equivalent(Sys.getenv("LMOD_VERSION", unset = NA),
+                      "8.4")
+    expect_equivalent(Sys.getenv("MODULESHOME", unset = NA),
+                      file.path(lmodulesHome))
+  })
+})
