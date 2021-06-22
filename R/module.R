@@ -69,10 +69,10 @@ module <- function( Arguments ){
     moduleCode <- grepl(pattern = "^(Sys\\.|mlstatus)", x = rCmds)
     invisible( eval( parse(text = rCmds[moduleCode]) ) )
     if(any(moduleCode == FALSE)) {
-      return(paste(rCmds[-which(moduleCode)], collapse = "\n"))
+      return(maybe_filter_output(rCmds[-which(moduleCode)]))
     }
   } else {
-    return(paste(rCmds, collapse = "\n"))
+    return(maybe_filter_output(rCmds))
   }
 
   if (length(rCmds) & !mlstatus){ stop("modulecmd was not successful, mlstatus != TRUE") }
@@ -81,3 +81,16 @@ module <- function( Arguments ){
 
 #' @export
 ml <- function(...) module(...)
+
+maybe_filter_output <- function(output) {
+  if (requireNamespace("knitr", quietly = TRUE)) {
+    filter <- getOption("rlinuxmodules.filter.cat", FALSE)
+    on.exit({ options(rlinuxmodules.filter.cat = filter) })
+    options(rlinuxmodules.filter.cat = !is.null(knitr::current_input()))
+  }
+  x <- paste(output, collapse = "\n")
+  if (getOption("rlinuxmodules.filter.cat", FALSE) == TRUE) {
+    return(invisible({message(x); x}))
+  }
+  return(x)
+}

@@ -24,7 +24,7 @@
   .rlinuxmodules <<-
     as.list(Sys.getenv(x = .rlinuxmodules.names, unset = NA))
   op <- options()
-  op.rlinuxmodules <- list(rlinuxmodules.onunload.reset = TRUE)
+  op.rlinuxmodules <- list(rlinuxmodules.onunload.reset = TRUE, rlinuxmodules.filter.cat = FALSE)
   toset <- !(names(op.rlinuxmodules) %in% names(op))
   if (any(toset))
     options(op.rlinuxmodules[toset])

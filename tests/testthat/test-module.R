@@ -102,6 +102,16 @@ test_that("module commands", {
                       "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
     expect_true(is.na(Sys.getenv("SAMTOOLS_VERSION", unset = NA)))
   })
+
+  withr::with_envvar(empty_env, {
+    moduleInit(modulesHome = modulesHome)
+
+    withr::with_options(c(rlinuxmodules.filter.cat = TRUE), {
+      captured <- module("list")
+      expect_equivalent(captured, "Currently Loaded Modulefiles:\n 1) R/default")
+    })
+
+  })
 })
 
 test_that("module commands in system", {
